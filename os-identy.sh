@@ -1,0 +1,40 @@
+#!/bin/bash
+START_TIME=$(date +%s)
+TARGET="8.8.8.8"
+PING_COUNT=10
+
+# Сбор системной информации
+OS=$(grep PRETTY_NAME /etc/os-release | cut -d= -f2 | tr -d '"')
+CPU=$(nproc)
+RAM=$(free -h | awk '/Mem:/ { print $2 }')
+DISK=$(df -h / | awk 'NR==2 { print $2 " total, " $4 " free" }')
+IP_LOCAL=$(hostname -I | awk '{print $1}')
+IP_PUBLIC=$(curl -s https://api.ipify.org)
+
+# Ping-тест
+PING_OUT=$(ping -c $PING_COUNT $TARGET)
+LOSS=$(echo "$PING_OUT" | grep -oP '\d+(?=% packet loss)')
+AVG=$(echo "$PING_OUT" | grep 'rtt min/avg/max' | awk -F '/' '{print $5}')
+MAX=$(echo "$PING_OUT" | grep 'rtt min/avg/max' | awk -F '/' '{print $6}')
+
+END_TIME=$(date +%s)
+ELAPSED=$((END_TIME - START_TIME))
+
+# Вывод
+echo "=== System Info ==="
+echo "OS: $OS"
+echo "CPU(s): $CPU"
+echo "RAM: $RAM"
+echo "Disk: $DISK"
+echo "Local IP: $IP_LOCAL"
+echo "Public IP: $IP_PUBLIC"
+
+echo
+echo "=== Network Test ($TARGET) ==="
+echo "Ping count: $PING_COUNT"
+echo "Packet loss: ${LOSS:-N/A}%"
+echo "Avg latency: ${AVG:-N/A} ms"
+echo "Max latency: ${MAX:-N/A} ms"
+
+echo
+echo "✅ Completed in $ELAPSED seconds."
