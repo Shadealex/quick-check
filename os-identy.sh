@@ -1,40 +1,68 @@
 #!/bin/bash
-START_TIME=$(date +%s)
-TARGET="8.8.8.8"
-PING_COUNT=10
 
-# Сбор системной информации
-OS=$(grep PRETTY_NAME /etc/os-release | cut -d= -f2 | tr -d '"')
-CPU=$(nproc)
-RAM=$(free -h | awk '/Mem:/ { print $2 }')
-DISK=$(df -h / | awk 'NR==2 { print $2 " total, " $4 " free" }')
-IP_LOCAL=$(hostname -I | awk '{print $1}')
-IP_PUBLIC=$(curl -s https://api.ipify.org)
+echo "==================== SYSTEM OVERVIEW ===================="
+echo "Hostname: $(hostname)"
+echo "Uptime: $(uptime -p)"
+echo "Date: $(date)"
 
-# Ping-тест
-PING_OUT=$(ping -c $PING_COUNT $TARGET)
-LOSS=$(echo "$PING_OUT" | grep -oP '\d+(?=% packet loss)')
-AVG=$(echo "$PING_OUT" | grep 'rtt min/avg/max' | awk -F '/' '{print $5}')
-MAX=$(echo "$PING_OUT" | grep 'rtt min/avg/max' | awk -F '/' '{print $6}')
+# OS Info
+echo -e "\n--- OS ---"
+grep '^PRETTY_NAME' /etc/os-release 2>/dev/null | cut -d= -f2 | tr -d '"'
+uname -r && uname -m
 
-END_TIME=$(date +%s)
-ELAPSED=$((END_TIME - START_TIME))
+# CPU Info
+echo -e "\n--- CPU ---"
+lscpu | grep -E 'Model name|Socket|Thread|Core|CPU\(s\)|MHz'
 
-# Вывод
-echo "=== System Info ==="
-echo "OS: $OS"
-echo "CPU(s): $CPU"
-echo "RAM: $RAM"
-echo "Disk: $DISK"
-echo "Local IP: $IP_LOCAL"
-echo "Public IP: $IP_PUBLIC"
+# Memory
+echo -e "\n--- MEMORY ---"
+free -h
 
-echo
-echo "=== Network Test ($TARGET) ==="
-echo "Ping count: $PING_COUNT"
-echo "Packet loss: ${LOSS:-N/A}%"
-echo "Avg latency: ${AVG:-N/A} ms"
-echo "Max latency: ${MAX:-N/A} ms"
+# Disk
+echo -e "\n--- DISK ---"
+df -hT /
 
-echo
-echo "✅ Completed in $ELAPSED seconds."
+echo -e "\nBlock devices:"
+lsblk -o NAME,SIZE,TYPE,MOUNTPOINT
+
+# Network
+echo -e "\n--- NETWORK ---"
+ip a | grep inet | grep -v '127.0.0.1'
+echo "Default gateway: $(ip route | grep default | awk '{print $3}')"
+
+# Public IP + country
+echo -e "\n--- PUBLIC IP ---"
+IP_JSON=$(curl -s https://ifconfig.io/all.json)
+echo "IP: $(echo "$IP_JSON" | grep -oP '"ip":\s*"\K[^"]*')"
+echo "Country: $(echo "$IP_JSON" | grep -oP '"country":\s*"\K[^"]*')"
+echo "Country Code: $(echo "$IP_JSON" | grep -oP '"country_code":\s*"\K[^"]*')"
+
+# Check virtualization
+echo -e "\n--- VIRTUALIZATION ---"
+if command -v systemd-detect-virt &>/dev/null; then
+    systemd-detect-virt
+else
+    grep -q 'hypervisor' /proc/cpuinfo && echo "Hypervisor detected" || echo "Probably bare metal"
+fi
+
+# PCI devices
+#echo -e "\n--- PCI DEVICES ---"
+#lspci | grep -E "VGA|3D|Ethernet"
+
+# DMI info (if available)
+if [ -r /sys/class/dmi/id/product_name ]; then
+    echo -e "\n--- HARDWARE INFO ---"
+    echo "Manufacturer: $(cat /sys/class/dmi/id/sys_vendor)"
+    echo "Product: $(cat /sys/class/dmi/id/product_name)"
+    echo "Serial: $(cat /sys/class/dmi/id/product_serial)"
+fi
+
+# Ping test
+echo -e "\n--- NETWORK LATENCY TEST ---"
+ping -c 5 8.8.8.8 | tail -2
+
+# Boot logs (last lines)
+echo -e "\n--- dmesg (last 10 lines) ---"
+dmesg | tail -10
+
+echo -e "\n✅ Done"
