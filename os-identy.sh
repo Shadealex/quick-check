@@ -45,6 +45,3 @@ echo "Max latency: ${MAX:-N/A} ms"
 
 echo
 echo "✅ Completed in $ELAPSED seconds."
-
-# Не оставлять следов в истории, если включено ignorespace
-[ "$HISTCONTROL" = "ignorespace" ] && history -d $((HISTCMD-1))
