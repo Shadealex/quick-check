@@ -1,4 +1,4 @@
-#!/bin/bashAdd commentMore actions
+#!/bin/bash
 
 # Цвета для вывода
 RED='\033[0;31m'
@@ -94,7 +94,7 @@ fi
 #        count=$(ss -tn | grep ESTAB | grep "$ip:" | wc -l)
 #        printf "%-15s: %3d connections" $ip $count
         
-#        # Проверяем, есть ли этот IP в нашем списке серверных IP
+        # Проверяем, есть ли этот IP в нашем списке серверных IP
 #        if echo "$UNIQUE_IPS" | grep -q "$ip"; then
 #            echo -e " ${GREEN}[Server IP]${NC}"
 #        else
@@ -102,8 +102,8 @@ fi
 #        fi
 #    done
 #else
-    echo -e "${RED}Исходящие соединения не найдены${NC}"
-fi
+#    echo -e "${RED}Исходящие соединения не найдены${NC}"
+#fi
 
 # 6. Топ назначений
 echo -e "\n${YELLOW}=== Топ-10 назначений ===${NC}"
@@ -112,7 +112,7 @@ ss -tn | grep ESTAB | grep -v '127.0.0.1' | awk '{print $4}' | cut -d: -f1 | sor
 # 7. Проверка балансировки (если есть несколько исходящих IP)
 OUTGOING_COUNT=$(echo "$OUTGOING_IPS" | wc -w)
 if [ $OUTGOING_COUNT -gt 1 ]; then
-    echo -e "\n${YELLOW}=== Анализ балансировки нагрузки ===${NC}"
+    echo -e "\n${YELLOW}=== Анализ балансировки нагрузки ===${NC}"Add commentMore actions
     
     # Вычисляем среднее количество соединений
     TOTAL_CONNECTIONS=0
