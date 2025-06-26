@@ -85,23 +85,23 @@ fi
 #done
 
 # 5. Определяем исходящие IP из активных соединений
-echo -e "\n${YELLOW}=== Анализ исходящих соединений ===${NC}"
-OUTGOING_IPS=$(ss -tn | grep ESTAB | grep -v '127.0.0.1' | awk '{print $3}' | cut -d: -f1 | sort -u)
+#echo -e "\n${YELLOW}=== Анализ исходящих соединений ===${NC}"
+#OUTGOING_IPS=$(ss -tn | grep ESTAB | grep -v '127.0.0.1' | awk '{print $3}' | cut -d: -f1 | sort -u)
 
-if [ ! -z "$OUTGOING_IPS" ]; then
-    echo -e "${GREEN}Используемые исходящие IP:${NC}"
-    for ip in $OUTGOING_IPS; do
-        count=$(ss -tn | grep ESTAB | grep "$ip:" | wc -l)
-        printf "%-15s: %3d connections" $ip $count
+#if [ ! -z "$OUTGOING_IPS" ]; then
+#    echo -e "${GREEN}Используемые исходящие IP:${NC}"
+#    for ip in $OUTGOING_IPS; do
+#        count=$(ss -tn | grep ESTAB | grep "$ip:" | wc -l)
+#        printf "%-15s: %3d connections" $ip $count
         
-        # Проверяем, есть ли этот IP в нашем списке серверных IP
-        if echo "$UNIQUE_IPS" | grep -q "$ip"; then
-            echo -e " ${GREEN}[Server IP]${NC}"
-        else
-            echo -e " ${YELLOW}[External/Other]${NC}"
-        fi
-    done
-else
+#        # Проверяем, есть ли этот IP в нашем списке серверных IP
+#        if echo "$UNIQUE_IPS" | grep -q "$ip"; then
+#            echo -e " ${GREEN}[Server IP]${NC}"
+#        else
+#            echo -e " ${YELLOW}[External/Other]${NC}"
+#        fi
+#    done
+#else
     echo -e "${RED}Исходящие соединения не найдены${NC}"
 fi
 
