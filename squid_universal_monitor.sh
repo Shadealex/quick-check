@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bashAdd commentMore actions
 
 # Цвета для вывода
 RED='\033[0;31m'
@@ -73,38 +73,32 @@ if [ -z "$WORKING_PORTS" ]; then
 fi
 
 # 4. Анализ сетевых соединений по портам
-echo -e "\n${YELLOW}=== Сетевые соединения по портам Squid ===${NC}"
-for port in $WORKING_PORTS; do
-    echo -e "\n${BLUE}Порт $port:${NC}"
-    CONNECTIONS=$(ss -tn | grep ":$port " | awk '{print $1}' | sort | uniq -c)
-    if [ ! -z "$CONNECTIONS" ]; then
-        echo "$CONNECTIONS"
-    else
-        echo "  Нет активных соединений"
-    fi
-done
+#echo -e "\n${YELLOW}=== Сетевые соединения по портам Squid ===${NC}"
+#for port in $WORKING_PORTS; do
+#    echo -e "\n${BLUE}Порт $port:${NC}"
+#    CONNECTIONS=$(ss -tn | grep ":$port " | awk '{print $1}' | sort | uniq -c)
+#    if [ ! -z "$CONNECTIONS" ]; then
+#        echo "$CONNECTIONS"
+#    else
+#        echo "  Нет активных соединений"
+#    fi
+#done
 
 # 5. Определяем исходящие IP из активных соединений
 echo -e "\n${YELLOW}=== Анализ исходящих соединений ===${NC}"
-
-# Правильный парсинг локальных адресов из ss
-OUTGOING_IPS=$(ss -tn | grep ESTAB | grep -v '127.0.0.1' | awk '{print $3}' | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | sort -u)
+OUTGOING_IPS=$(ss -tn | grep ESTAB | grep -v '127.0.0.1' | awk '{print $3}' | cut -d: -f1 | sort -u)
 
 if [ ! -z "$OUTGOING_IPS" ]; then
     echo -e "${GREEN}Используемые исходящие IP:${NC}"
     for ip in $OUTGOING_IPS; do
-        # Считаем соединения для этого IP (точное совпадение)
-        count=$(ss -tn | grep ESTAB | grep -E "^tcp[[:space:]]+[0-9]+[[:space:]]+[0-9]+[[:space:]]+${ip}:" | wc -l)
+        count=$(ss -tn | grep ESTAB | grep "$ip:" | wc -l)
+        printf "%-15s: %3d connections" $ip $count
         
-        if [ $count -gt 0 ]; then
-            printf "%-15s: %3d connections" $ip $count
-            
-            # Проверяем, есть ли этот IP в нашем списке серверных IP
-            if echo "$UNIQUE_IPS" | grep -q "^$ip$"; then
-                echo -e " ${GREEN}[Server IP]${NC}"
-            else
-                echo -e " ${YELLOW}[External/Other]${NC}"
-            fi
+        # Проверяем, есть ли этот IP в нашем списке серверных IP
+        if echo "$UNIQUE_IPS" | grep -q "$ip"; then
+            echo -e " ${GREEN}[Server IP]${NC}"
+        else
+            echo -e " ${YELLOW}[External/Other]${NC}"
         fi
     done
 else
