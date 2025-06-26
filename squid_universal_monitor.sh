@@ -44,7 +44,7 @@ for port in $SQUID_PORTS; do
     echo -e "\n${BLUE}Порт $port:${NC}"
     
     # Проверяем доступность порта
-    if timeout 3 squidclient -p $port mgr:info >/dev/null 2>&1; then
+    if timeout 10 squidclient -p $port mgr:info >/dev/null 2>&1; then
         WORKING_PORTS="$WORKING_PORTS $port"
         
         # Получаем статистику
