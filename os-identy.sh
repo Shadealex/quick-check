@@ -12,7 +12,7 @@ DISK=$(df -h / | awk 'NR==2 { print $2 " total, " $4 " free" }')
 IP_LOCAL=$(hostname -I | awk '{print $1}')
 
 # Внешний IP и код страны
-IP_INFO=$(curl -s https://ifconfig.io/all.json)
+IP_INFO=$(curl -4 -s https://ifconfig.io/all.json)
 IP_PUBLIC=$(echo "$IP_INFO" | grep -oP '"ip":\s*"\K[^"]+')
 COUNTRY_CODE=$(echo "$IP_INFO" | grep -oP '"country_code":\s*"\K[^"]+')
 
