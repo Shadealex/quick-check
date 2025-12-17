@@ -1,5 +1,6 @@
 #!/bin/bash
-# YABS Network Only (IPv4) -------— FINAL FIXED VERSION
+# YABS Network Only (IPv4) — FINAL STABLE VERSION
+# Compatible output, no disk / geekbench / ipv6
 
 export LC_ALL=C
 
@@ -31,7 +32,7 @@ if ! ping -4 -c1 -W2 ipv4.google.com >/dev/null 2>&1; then
   exit 1
 fi
 
-# ---------- uptime (YABS style) ----------
+# ---------- uptime (classic YABS style) ----------
 UPTIME=$(uptime | awk -F'( |,|:)+' '{d=h=m=0;
  if ($7=="min") m=$6;
  else {
@@ -74,16 +75,34 @@ echo "Kernel     : $KERNEL"
 echo "VM Type    : $VIRT"
 echo "IPv4/IPv6  : ✔ Online / ❌ Offline"
 
-# ---------- IP info ----------
+# ---------- IPv4 Network Info (SAFE JSON PARSE) ----------
 IPINFO=$($DL http://ip-api.com/json)
+
+json_val() {
+  echo "$IPINFO" \
+    | sed 's/[{},]/\n/g' \
+    | awk -F: -v k="$1" '$1 ~ "\""k"\"" {
+        gsub(/^[ \t"]+|[ \t"]+$/, "", $2)
+        print $2
+      }'
+}
+
+ISP=$(json_val isp)
+ASN=$(json_val as)
+ORG=$(json_val org)
+CITY=$(json_val city)
+REGION=$(json_val regionName)
+REGION_CODE=$(json_val region)
+COUNTRY=$(json_val country)
+
 echo
 echo "IPv4 Network Information:"
 echo "---------------------------------"
-echo "ISP        : $(echo "$IPINFO" | awk -F'"' '/"isp"/{print $4}')"
-echo "ASN        : $(echo "$IPINFO" | awk -F'"' '/"as"/{print $4}')"
-echo "Host       : $(echo "$IPINFO" | awk -F'"' '/"org"/{print $4}')"
-echo "Location   : $(echo "$IPINFO" | awk -F'"' '/"city"/{c=$4} /"regionName"/{r=$4} /"region"/{rc=$4} END{print c", "r" ("rc")"}')"
-echo "Country    : $(echo "$IPINFO" | awk -F'"' '/"country"/{print $4}')"
+echo "ISP        : ${ISP:-Unknown}"
+echo "ASN        : ${ASN:-Unknown}"
+echo "Host       : ${ORG:-Unknown}"
+echo "Location   : ${CITY:-Unknown}, ${REGION:-Unknown} (${REGION_CODE:-??})"
+echo "Country    : ${COUNTRY:-Unknown}"
 
 # ---------- iperf servers ----------
 IPERF_LOCS=(
@@ -108,15 +127,21 @@ for S in "${IPERF_LOCS[@]}"; do
   NAME=${TMP%%|*}
   LOC=${TMP#*|}
 
-  SEND=$(timeout 15 iperf3 -4 -c "$HOST" -P 8 2>/dev/null | grep SUM | grep receiver | awk '{print $6,$7}')
-  RECV=$(timeout 15 iperf3 -4 -c "$HOST" -P 8 -R 2>/dev/null | grep SUM | grep receiver | awk '{print $6,$7}')
-  PING=$(ping -4 -c1 "$HOST" 2>/dev/null | sed -n 's/.*time=\(.*\) ms/\1 ms/p')
+  SEND=$(timeout 15 iperf3 -4 -c "$HOST" -P 8 2>/dev/null \
+         | grep SUM | grep receiver | awk '{print $6,$7}')
+
+  RECV=$(timeout 15 iperf3 -4 -c "$HOST" -P 8 -R 2>/dev/null \
+         | grep SUM | grep receiver | awk '{print $6,$7}')
+
+  PING=$(ping -4 -c1 "$HOST" 2>/dev/null \
+         | sed -n 's/.*time=\(.*\) ms/\1 ms/p')
 
   [[ -z "$SEND" ]] && SEND="busy"
   [[ -z "$RECV" ]] && RECV="busy"
   [[ -z "$PING" ]] && PING="--"
 
-  printf "%-15s | %-25s | %-15s | %-15s | %-10s\n" "$NAME" "$LOC" "$SEND" "$RECV" "$PING"
+  printf "%-15s | %-25s | %-15s | %-15s | %-10s\n" \
+         "$NAME" "$LOC" "$SEND" "$RECV" "$PING"
 done
 
 echo
