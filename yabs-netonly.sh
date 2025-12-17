@@ -1,5 +1,5 @@
 #!/bin/bash
-# YABS Network Only (IPv4) — FINAL FIXED VERSION
+# YABS Network Only (IPv4) -------— FINAL FIXED VERSION
 
 export LC_ALL=C
 
