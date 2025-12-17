@@ -104,6 +104,36 @@ echo "Host       : ${ORG:-Unknown}"
 echo "Location   : ${CITY:-Unknown}, ${REGION:-Unknown} (${REGION_CODE:-??})"
 echo "Country    : ${COUNTRY:-Unknown}"
 
+# ---------- Cloudflare Speed Test ----------
+echo
+echo "Cloudflare Speed Test (IPv4):"
+echo "---------------------------------"
+
+CF_SERVER="speed.cloudflare.com"
+
+PING_LINE=$(ping -4 -c 5 "$CF_SERVER" 2>/dev/null | tail -1)
+CF_PING=$(echo "$PING_LINE" | awk -F'/' '{print $5}')
+CF_JITTER=$(echo "$PING_LINE" | awk -F'/' '{print $7}')
+
+CF_DL_BYTES=$(curl -4 -s -o /dev/null \
+  https://speed.cloudflare.com/__down?bytes=10000000 \
+  -w "%{speed_download}")
+
+CF_UL_BYTES=$(dd if=/dev/zero bs=1M count=10 2>/dev/null \
+  | curl -4 -s -o /dev/null \
+    https://speed.cloudflare.com/__up \
+    --data-binary @- \
+    -w "%{speed_upload}")
+
+# bytes/sec → Mbps
+CF_DL_Mbps=$(awk "BEGIN { printf \"%.2f\", $CF_DL_BYTES * 8 / 1000000 }")
+CF_UL_Mbps=$(awk "BEGIN { printf \"%.2f\", $CF_UL_BYTES * 8 / 1000000 }")
+
+echo "Download   : ${CF_DL_Mbps:-N/A} Mbps"
+echo "Upload     : ${CF_UL_Mbps:-N/A} Mbps"
+echo "Ping       : ${CF_PING:-N/A} ms"
+echo "Jitter     : ${CF_JITTER:-N/A} ms"
+
 # ---------- iperf servers ----------
 IPERF_LOCS=(
   "lon.speedtest.clouvider.net|Clouvider|London, UK (10G)"
