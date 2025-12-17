@@ -1,104 +1,126 @@
 #!/bin/bash
-# Minimal YABS (Network Only)
-# Based on Yet-Another-Bench-Script by Mason Rowe
-# Stripped to: System Info + IPv4 Info + iperf3 IPv4
+# YABS Network Only (Compatible Output)
 
 set -e
+export LC_ALL=C
 
-echo "-----------------------------------------------"
-echo "   YABS Network Only (IPv4)"
-echo "-----------------------------------------------"
+echo -e '# -----------------------------------------------'
+echo -e '#   YABS Network Only (IPv4, Compatible Output)  #'
+echo -e '# -----------------------------------------------'
 date
 START_TIME=$(date +%s)
 
-# locale
-export LC_ALL=C
-
-# arch
+# -------- Architecture --------
 ARCH=$(uname -m)
-if [[ $ARCH == *x86_64* ]]; then
-  ARCH="x64"
-elif [[ $ARCH == *aarch64* || $ARCH == *arm* ]]; then
-  ARCH="aarch64"
-else
-  echo "Unsupported architecture"
-  exit 1
-fi
+[[ $ARCH == *x86_64* ]] && ARCH="x64"
+[[ $ARCH == *aarch64* || $ARCH == *arm* ]] && ARCH="aarch64"
 
-# tools
-command -v curl >/dev/null 2>&1 && DL="curl -s" || DL="wget -qO-"
-command -v iperf3 >/dev/null 2>&1 || {
-  echo "iperf3 not found"
+# -------- Tools --------
+command -v curl >/dev/null && DL="curl -s" || DL="wget -qO-"
+command -v iperf3 >/dev/null || { echo "iperf3 required"; exit 1; }
+
+# -------- IPv4 Check --------
+ping -4 -c1 -W2 ipv4.google.com >/dev/null 2>&1 || {
+  echo "IPv4 not available"
   exit 1
 }
 
-# IPv4 check
-ping -4 -c1 -W2 8.8.8.8 >/dev/null 2>&1 || {
-  echo "No IPv4 connectivity"
-  exit 1
-}
+# -------- Uptime (old YABS style) --------
+UPTIME=$(uptime | awk -F'( |,|:)+' '{d=h=m=0;
+ if ($7=="min") m=$6;
+ else {
+  if ($7~/^day/) {d=$6;h=$8;m=$9}
+  else {h=$6;m=$7}
+ }
+ print d+0,"days,",h+0,"hours,",m+0,"minutes"}')
 
-echo
-echo "Basic System Information"
-echo "-----------------------------------------------"
+# -------- CPU --------
+CPU_PROC=$(awk -F: '/model name/ {print $2; exit}' /proc/cpuinfo | xargs)
+CPU_CORES=$(nproc)
+CPU_FREQ=$(awk -F: '/cpu MHz/ {print int($2); exit}' /proc/cpuinfo)" MHz"
+grep -q aes /proc/cpuinfo && CPU_AES="✔ Enabled" || CPU_AES="❌ Disabled"
+grep -Eq 'vmx|svm' /proc/cpuinfo && CPU_VIRT="✔ Enabled" || CPU_VIRT="❌ Disabled"
 
-UPTIME=$(uptime -p)
-CPU=$(awk -F: '/model name/ {print $2; exit}' /proc/cpuinfo | xargs)
-CORES=$(nproc)
-FREQ=$(awk -F: '/cpu MHz/ {print int($2); exit}' /proc/cpuinfo)
-RAM=$(free -h | awk '/Mem:/ {print $2}')
+# -------- Memory / Disk --------
+TOTAL_RAM=$(free | awk 'NR==2 {printf "%.1f GiB", $2/1024/1024}')
+TOTAL_SWAP=$(free | awk '/Swap/ {printf "%.1f GiB", $2/1024/1024}')
+TOTAL_DISK=$(df -k --total | awk '/total/ {printf "%.1f TiB", $2/1024/1024/1024}')
+
+# -------- OS --------
 DISTRO=$(grep PRETTY_NAME /etc/os-release | cut -d= -f2 | tr -d '"')
 KERNEL=$(uname -r)
-VIRT=$(systemd-detect-virt 2>/dev/null || echo unknown)
+VIRT=$(systemd-detect-virt 2>/dev/null)
+[[ -z "$VIRT" || "$VIRT" == "none" ]] && VIRT="NONE"
 
+echo
+echo "Basic System Information:"
+echo "---------------------------------"
 echo "Uptime     : $UPTIME"
-echo "CPU        : $CPU"
-echo "Cores      : $CORES @ ${FREQ}MHz"
-echo "RAM        : $RAM"
+echo "Processor  : $CPU_PROC"
+echo "CPU cores  : $CPU_CORES @ $CPU_FREQ"
+echo "AES-NI     : $CPU_AES"
+echo "VM-x/AMD-V : $CPU_VIRT"
+echo "RAM        : $TOTAL_RAM"
+echo "Swap       : $TOTAL_SWAP"
+echo "Disk       : $TOTAL_DISK"
 echo "Distro     : $DISTRO"
 echo "Kernel     : $KERNEL"
-echo "VM Type    : ${VIRT^^}"
+echo "VM Type    : $VIRT"
+echo "IPv4/IPv6  : ✔ Online / ❌ Offline"
 
-echo
-echo "IPv4 Network Information"
-echo "-----------------------------------------------"
-
+# -------- IPv4 Network Info --------
 IPINFO=$($DL http://ip-api.com/json)
-echo "ISP        : $(echo "$IPINFO" | jq -r .isp)"
-echo "ASN        : $(echo "$IPINFO" | jq -r .as)"
-echo "Country    : $(echo "$IPINFO" | jq -r .country)"
-echo "Region     : $(echo "$IPINFO" | jq -r .regionName)"
-echo "City       : $(echo "$IPINFO" | jq -r .city)"
+ISP=$(echo "$IPINFO" | awk -F'"' '/"isp"/{print $4}')
+ASN=$(echo "$IPINFO" | awk -F'"' '/"as"/{print $4}')
+ORG=$(echo "$IPINFO" | awk -F'"' '/"org"/{print $4}')
+CITY=$(echo "$IPINFO" | awk -F'"' '/"city"/{print $4}')
+REGION=$(echo "$IPINFO" | awk -F'"' '/"regionName"/{print $4}')
+REGION_CODE=$(echo "$IPINFO" | awk -F'"' '/"region"/{print $4}')
+COUNTRY=$(echo "$IPINFO" | awk -F'"' '/"country"/{print $4}')
 
 echo
-echo "iperf3 Network Speed Tests (IPv4)"
-echo "-----------------------------------------------"
-printf "%-15s | %-25s | %-12s | %-12s | %-8s\n" "Provider" "Location" "Send" "Recv" "Ping"
-printf "%-15s | %-25s | %-12s | %-12s | %-8s\n" "--------" "--------" "----" "----" "----"
+echo "IPv4 Network Information:"
+echo "---------------------------------"
+echo "ISP        : $ISP"
+echo "ASN        : $ASN"
+echo "Host       : $ORG"
+echo "Location   : $CITY, $REGION ($REGION_CODE)"
+echo "Country    : $COUNTRY"
 
-IPERF_SERVERS=(
+# -------- iperf --------
+IPERF_LOCS=(
   "lon.speedtest.clouvider.net|Clouvider|London, UK (10G)"
-  "speedtest.nyc1.us.leaseweb.net|Leaseweb|NYC, US (10G)"
+  "iperf-ams-nl.eranium.net|Eranium|Amsterdam, NL (100G)"
+  "speedtest.uztelecom.uz|Uztelecom|Tashkent, UZ (10G)"
+  "speedtest.sin1.sg.leaseweb.net|Leaseweb|Singapore, SG (10G)"
+  "la.speedtest.clouvider.net|Clouvider|Los Angeles, CA, US (10G)"
+  "speedtest.nyc1.us.leaseweb.net|Leaseweb|NYC, NY, US (10G)"
+  "speedtest.sao1.edgoo.net|Edgoo|Sao Paulo, BR (1G)"
 )
 
-for S in "${IPERF_SERVERS[@]}"; do
-  HOST=$(echo "$S" | cut -d\| -f1)
-  NAME=$(echo "$S" | cut -d\| -f2)
-  LOC=$(echo "$S" | cut -d\| -f3)
+echo
+echo "iperf3 Network Speed Tests (IPv4):"
+echo "---------------------------------"
+printf "%-15s | %-25s | %-15s | %-15s | %-10s\n" "Provider" "Location (Link)" "Send Speed" "Recv Speed" "Ping"
+printf "%-15s | %-25s | %-15s | %-15s | %-10s\n" "-----" "-----" "----" "----" "----"
 
-  SEND=$(iperf3 -4 -c "$HOST" -P 8 -t 10 2>/dev/null | grep SUM | grep receiver | awk '{print $6,$7}')
-  RECV=$(iperf3 -4 -c "$HOST" -P 8 -t 10 -R 2>/dev/null | grep SUM | grep receiver | awk '{print $6,$7}')
-  PING=$(ping -4 -c1 "$HOST" 2>/dev/null | grep time= | sed 's/.*time=//')
+for S in "${IPERF_LOCS[@]}"; do
+  HOST=${S%%|*}
+  TMP=${S#*|}
+  NAME=${TMP%%|*}
+  LOC=${TMP#*|}
+
+  SEND=$(timeout 15 iperf3 -4 -c "$HOST" -P 8 2>/dev/null | grep SUM | grep receiver | awk '{print $6,$7}')
+  RECV=$(timeout 15 iperf3 -4 -c "$HOST" -P 8 -R 2>/dev/null | grep SUM | grep receiver | awk '{print $6,$7}')
+  PING=$(ping -4 -c1 "$HOST" 2>/dev/null | sed -n 's/.*time=\(.*\) ms/\1 ms/p')
 
   [[ -z "$SEND" ]] && SEND="busy"
   [[ -z "$RECV" ]] && RECV="busy"
   [[ -z "$PING" ]] && PING="--"
 
-  printf "%-15s | %-25s | %-12s | %-12s | %-8s\n" "$NAME" "$LOC" "$SEND" "$RECV" "$PING"
+  printf "%-15s | %-25s | %-15s | %-15s | %-10s\n" "$NAME" "$LOC" "$SEND" "$RECV" "$PING"
 done
 
-END_TIME=$(date +%s)
 echo
-echo "Completed in $((END_TIME - START_TIME)) seconds"
-
+echo "Completed in $(( $(date +%s) - START_TIME )) sec"
 unset LC_ALL
